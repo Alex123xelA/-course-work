@@ -1,4 +1,4 @@
-#include <QApplication>
+п»ї#include <QApplication>
 #include <QMainWindow>
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -14,292 +14,391 @@
 #include <QLabel>
 #include <QDialogButtonBox>
 #include <QRegularExpression>
+#include <QDateTime>
 
 const QString SEP = "`~`&";
-
 
 class TextFileViewer : public QWidget {
     Q_OBJECT
 
 public:
-    TextFileViewer(const QString& filePath, QWidget* parent = nullptr)
-        : QWidget(parent), filePath(filePath) {
-        loadFile();
+    TextFileViewer(const QString& filePath, const QString& resultsFilePath, const QString& separator, QWidget* parent = nullptr)
+        : QWidget(parent), filePath(filePath), resultsFilePath(resultsFilePath), separator(separator) {
+        // Р—Р°РіСЂСѓР·РєР° С„Р°Р№Р»Р°
+        if (!loadFile()) {
+            QMessageBox::critical(this, "РћС€РёР±РєР°", "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ С„Р°Р№Р».");
+            return;
+        }
 
+        // РЎРѕР·РґР°РЅРёРµ РёРЅС‚РµСЂС„РµР№СЃР°
+        setupUI();
+    }
+
+private:
+    bool loadFile() {
+        QFile file(filePath);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            return false; // РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ С„Р°Р№Р»
+        }
+
+        QTextStream in(&file);
+        QString content = in.readAll(); // Р§С‚РµРЅРёРµ С„Р°Р№Р»Р°
+        file.close();
+
+        // Р Р°Р·РґРµР»РµРЅРёРµ СЃРѕРґРµСЂР¶РёРјРѕРіРѕ
+        lines = content.split(separator, Qt::SkipEmptyParts);
+
+        return true;
+    }
+
+    void setupUI() {
         QVBoxLayout* layout = new QVBoxLayout(this);
 
-        // Текстовое поле для отображения и редактирования строки (без строк в ~~)
+        // РўРµРєСЃС‚РѕРІРѕРµ РїРѕР»Рµ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ С‚РµРєСѓС‰РµР№ СЃС‚СЂРѕРєРё (Р±РµР· РїРѕРґСЃС‚СЂРѕРєРё РІ ~~)
         textEdit = new QTextEdit(this);
-        textEdit->setReadOnly(false); // Разрешаем редактирование
+        textEdit->setReadOnly(false); // Р Р°Р·СЂРµС€Р°РµРј СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ
         layout->addWidget(textEdit);
 
-        // Новое текстовое поле для строк, заключенных в ~~
-        specialTextEdit = new QTextEdit(this);
-        specialTextEdit->setReadOnly(false); // Разрешаем редактирование
-        specialTextEdit->setPlaceholderText("Edit password lines (~~text~~) here");
-        layout->addWidget(specialTextEdit);
+        // РўРµРєСЃС‚РѕРІРѕРµ РїРѕР»Рµ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ Рё СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ РїРѕРґСЃС‚СЂРѕРєРё, Р·Р°РєР»СЋС‡РµРЅРЅРѕР№ РІ ~~
+        substringEdit = new QLineEdit(this);
+        substringEdit->setPlaceholderText("Р’РІРµРґРёС‚Рµ РїР°СЂРѕР»СЊ...");
+        layout->addWidget(substringEdit);
 
-        // Ползунок для выбора строки
+        // РўРµРєСЃС‚РѕРІРѕРµ РїРѕР»Рµ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ РІСЂРµРјРµРЅРё СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ Р·Р°РґР°С‡Рё
+        timeLabel = new QLabel(this);
+        timeLabel->setAlignment(Qt::AlignCenter);
+        timeLabel->setStyleSheet("font-weight: bold; color: green;"); 
+        layout->addWidget(timeLabel);
+
+        // РўРµРєСЃС‚РѕРІРѕРµ РїРѕР»Рµ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ РєРѕР»РёС‡РµСЃС‚РІР° РІС‹РїРѕР»РЅРµРЅРёР№ Р·Р°РґР°С‡Рё
+        saveCountLabel = new QLabel(this);
+        saveCountLabel->setAlignment(Qt::AlignCenter);
+        saveCountLabel->setStyleSheet("font-weight: bold; color: blue;"); 
+        layout->addWidget(saveCountLabel);
+
+        // РљРЅРѕРїРєР° РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ РёР·РјРµРЅРµРЅРёР№
+        QPushButton* saveButton = new QPushButton("РЎРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ", this);
+        layout->addWidget(saveButton);
+
+        // РљРЅРѕРїРєР° РґР»СЏ РґРѕР±Р°РІР»РµРЅРёСЏ РЅРѕРІРѕР№ Р·Р°РґР°С‡Рё
+        QPushButton* addButton = new QPushButton("Р”РѕР±Р°РІРёС‚СЊ РЅРѕРІСѓСЋ Р·Р°РґР°С‡Сѓ", this);
+        layout->addWidget(addButton);
+
+        // РљРЅРѕРїРєР° РґР»СЏ СѓРґР°Р»РµРЅРёСЏ С‚РµРєСѓС‰РµР№ Р·Р°РґР°С‡Рё
+        QPushButton* deleteButton = new QPushButton("РЈРґР°Р»РёС‚СЊ С‚РµРєСѓС‰СѓСЋ Р·Р°РґР°С‡Сѓ", this);
+        layout->addWidget(deleteButton);
+
+        // РљРЅРѕРїРєР° РґР»СЏ РѕС‡РёСЃС‚РєРё С„Р°Р№Р»Р° Results.txt
+        QPushButton* clearResultsButton = new QPushButton("РћС‚РјРµРЅРёС‚СЊ РІС‹РїРѕР»РЅРµРЅРёРµ Р·Р°РґР°С‡", this);
+        layout->addWidget(clearResultsButton);
+
+        // РџРѕР»Р·СѓРЅРѕРє
         slider = new QSlider(Qt::Horizontal, this);
         slider->setRange(0, lines.size() - 1);
         slider->setValue(0);
         layout->addWidget(slider);
 
-        // Кнопка для сохранения изменений
-        QPushButton* saveButton = new QPushButton("Save Changes", this);
-        layout->addWidget(saveButton);
-
-        // Новая кнопка для добавления нового разделителя
-        QPushButton* addSeparatorButton = new QPushButton("Add New Task", this);
-        layout->addWidget(addSeparatorButton);
-
-        // Кнопка для удаления текущей строки
-        QPushButton* deleteButton = new QPushButton("Delete Current Task", this);
-        layout->addWidget(deleteButton);
-
-        // Подключаем сигналы
+        // РћР±РЅРѕРІР»РµРЅРёРµ С‚РµРєСЃС‚РѕРІС‹С… РїРѕР»РµР№ РїСЂРё РёР·РјРµРЅРµРЅРёРё РїРѕР»Р·СѓРЅРєР°
         connect(slider, &QSlider::valueChanged, this, &TextFileViewer::updateText);
+
+        // РЎРѕС…СЂР°РЅРµРЅРёРµ РёР·РјРµРЅРµРЅРёР№ РїСЂРё РЅР°Р¶Р°С‚РёРё РЅР° РєРЅРѕРїРєСѓ
         connect(saveButton, &QPushButton::clicked, this, &TextFileViewer::saveChanges);
-        connect(addSeparatorButton, &QPushButton::clicked, this, &TextFileViewer::addNewLine);
+
+        // Р”РѕР±Р°РІР»РµРЅРёРµ РЅРѕРІРѕР№ Р·Р°РґР°С‡Рё РїСЂРё РЅР°Р¶Р°С‚РёРё РЅР° РєРЅРѕРїРєСѓ
+        connect(addButton, &QPushButton::clicked, this, &TextFileViewer::addNewLine);
+
+        // РЈРґР°Р»РµРЅРёРµ С‚РµРєСѓС‰РµР№ Р·Р°РґР°С‡Рё РїСЂРё РЅР°Р¶Р°С‚РёРё РЅР° РєРЅРѕРїРєСѓ
         connect(deleteButton, &QPushButton::clicked, this, &TextFileViewer::deleteCurrentLine);
 
-        // Инициализация текста
+        // РћС‡РёСЃС‚РєР° С„Р°Р№Р»Р° Results.txt РїСЂРё РЅР°Р¶Р°С‚РёРё РЅР° РєРЅРѕРїРєСѓ
+        connect(clearResultsButton, &QPushButton::clicked, this, &TextFileViewer::clearResultsFile);
+
+        // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ С‚РµРєСЃС‚Р°
         updateText(0);
+
+        setLayout(layout);
     }
 
 private slots:
-    // Обновление текста при изменении ползунка
     void updateText(int value) {
         if (value >= 0 && value < lines.size()) {
-            QString currentLine = lines[value];
+            currentLineIndex = value; // РЎРѕС…СЂР°РЅСЏРµРј РёРЅРґРµРєСЃ С‚РµРєСѓС‰РµР№ Р·Р°РґР°С‡Рё
 
-            // Удаляем строки, заключенные в ~~, для отображения в textEdit
-            QRegularExpression regex("~~.*?~~");
-            QString displayText = currentLine;
-            displayText.remove(regex); // Удаляем все вхождения ~~строка~~
+            // РЈСЃС‚Р°РЅРѕРІРєР° С‚РµРєСѓС‰РµР№ Р·Р°РґР°С‡Рё РІ С‚РµРєСЃС‚РѕРІРѕРµ РїРѕР»Рµ (Р±РµР· РїР°СЂРѕР»СЏ)
+            QString currentLine = lines[currentLineIndex];
+            QString displayText = removeSubstring(currentLine); 
             textEdit->setText(displayText);
 
-            // Ищем строки, заключенные в ~~, и отображаем их в specialTextEdit
-            QRegularExpression specialRegex("~~(.*?)~~");
-            QRegularExpressionMatchIterator matches = specialRegex.globalMatch(currentLine);
+            // РџРѕРёСЃРє РїР°СЂРѕР»СЏ
+            QString substring = extractSubstring(currentLine);
+            substringEdit->setText(substring);
 
-            QStringList specialLines;
-            while (matches.hasNext()) {
-                QRegularExpressionMatch match = matches.next();
-                specialLines.append(match.captured(1)); // Добавляем текст внутри ~~
-            }
+            // РћР±РЅРѕРІР»РµРЅРёРµ РІСЂРµРјРµРЅРё РїРѕСЃР»РµРґРЅРµРіРѕ РІС‹РїРѕР»РЅРµРЅРёСЏ Р·Р°РґР°С‡Рё
+            updateTimeLabel(currentLineIndex + 1); 
 
-            // Отображаем найденные строки в specialTextEdit
-            specialTextEdit->setText(specialLines.join("\n"));
+            // РћР±РЅРѕРІР»РµРЅРёРµ РєРѕР»РёС‡РµСЃС‚РІР° СЃРѕС…СЂР°РЅРµРЅРёР№ СЃС‚СЂРѕРєРё
+            updateSaveCountLabel(currentLineIndex + 1); 
         }
     }
 
-    // Сохранение изменений в файл
     void saveChanges() {
-        int currentLine = slider->value();
-        if (currentLine >= 0 && currentLine < lines.size()) {
-            // Обновляем строку в списке
-            QString updatedLine = textEdit->toPlainText();
+        if (currentLineIndex >= 0 && currentLineIndex < lines.size()) {
+            // РћР±РЅРѕРІР»СЏРµРј С‚РµРєСѓС‰СѓСЋ Р·Р°РґР°С‡Сѓ СЃ СѓС‡РµС‚РѕРј РёР·РјРµРЅРµРЅРёР№ РІ РїР°СЂРѕР»Рµ
+            QString newLine = textEdit->toPlainText();
+            QString newSubstring = substringEdit->text();
 
-            // Обновляем строки, заключенные в ~~, из specialTextEdit
-            QStringList specialLines = specialTextEdit->toPlainText().split("\n");
-            QRegularExpression regex("~~(.*?)~~");
-            QRegularExpressionMatchIterator matches = regex.globalMatch(lines[currentLine]);
+            // Р’РѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј РїР°СЂРѕР»СЊ
+            QString updatedLine = newLine + "~~" + newSubstring + "~~";
+            lines[currentLineIndex] = updatedLine;
 
-            int specialIndex = 0;
-            QString newLine = lines[currentLine];
-            while (matches.hasNext()) {
-                QRegularExpressionMatch match = matches.next();
-                if (specialIndex < specialLines.size()) {
-                    // Заменяем текст внутри ~~ на новый
-                    newLine.replace(match.captured(0), "~~" + specialLines[specialIndex] + "~~");
-                    specialIndex++;
-                }
-            }
+            // РћР±РЅРѕРІР»СЏРµРј С‚РµРєСЃС‚РѕРІРѕРµ РїРѕР»Рµ (Р±РµР· РїР°СЂРѕР»СЏ)
+            textEdit->setText(newLine);
 
-            // Обновляем строку
-            lines[currentLine] = newLine;
+            // РЎРѕС…СЂР°РЅСЏРµРј РёР·РјРµРЅРµРЅРёСЏ РІ С„Р°Р№Р»
+            saveFile();
 
-            // Сохраняем все строки в файл
-            QFile file(filePath);
-            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                QTextStream out(&file);
-                out << lines.join(SEP);
-                file.close();
-                QMessageBox::information(this, "Success", "Changes saved successfully!");
-            }
-            else {
-                QMessageBox::critical(this, "Error", "Failed to save changes!");
-            }
+            // Р—Р°РїРёСЃС‹РІР°РµРј С„Р°РєС‚ СЃРѕС…СЂР°РЅРµРЅРёСЏ РІ Results.txt
+            logSaveEvent(currentLineIndex + 1); 
+
+            // РћР±РЅРѕРІР»СЏРµРј РєРѕР»РёС‡РµСЃС‚РІРѕ РІС‹РїРѕР»РЅРµРЅРёР№
+            updateSaveCountLabel(currentLineIndex + 1);
         }
     }
 
-    // Добавление нового разделителя и пустой строки
     void addNewLine() {
-        // Проверяем, есть ли строка, заключенная в ~~
-        bool hasSpecialLine = false;
-        for (const QString& line : lines) {
-            if (line.contains("~~")) {
-                hasSpecialLine = true;
-                break;
-            }
-        }
+        // Р”РѕР±Р°РІР»СЏРµРј РЅРѕРІСѓСЋ Р·Р°РґР°С‡Сѓ РІ РєРѕРЅРµС† СЃРїРёСЃРєР°
+        lines.append("~~~~"); // РџСѓСЃС‚РѕР№ РїР°СЂРѕР»СЊ
 
-        if (!hasSpecialLine) {
-            // Если нет строки с ~~, показываем ошибку
-            QMessageBox::critical(this, "Error", "No task with password found! Cannot add a new task.");
-            return;
-        }
-
-        // Добавляем новый разделитель и пустую строку
-        lines.append("");
+        // РћР±РЅРѕРІР»СЏРµРј РґРёР°РїР°Р·РѕРЅ РїРѕР»Р·СѓРЅРєР°
         slider->setRange(0, lines.size() - 1);
-        slider->setValue(lines.size() - 1);
-        updateText(lines.size() - 1);
+
+        // РџРµСЂРµРєР»СЋС‡Р°РµРјСЃСЏ РЅР° РЅРѕРІСѓСЋ СЃС‚СЂРѕРєСѓ
+        currentLineIndex = lines.size() - 1;
+        slider->setValue(currentLineIndex);
+
+        // РћР±РЅРѕРІР»СЏРµРј С‚РµРєСЃС‚РѕРІС‹Рµ РїРѕР»СЏ
+        updateText(currentLineIndex);
+
+        // РЎРѕС…СЂР°РЅСЏРµРј РёР·РјРµРЅРµРЅРёСЏ РІ С„Р°Р№Р»
+        saveFile();
     }
 
-    // Удаление текущей строки
     void deleteCurrentLine() {
-        int currentLine = slider->value();
-        if (currentLine >= 0 && currentLine < lines.size()) {
-            // Удаляем текущую строку
-            lines.removeAt(currentLine);
+        if (currentLineIndex >= 0 && currentLineIndex < lines.size()) {
+            // РЈРґР°Р»СЏРµРј С‚РµРєСѓС‰СѓСЋ Р·Р°РґР°С‡Сѓ
+            lines.removeAt(currentLineIndex);
 
-            // Обновляем ползунок
+            // РћР±РЅРѕРІР»СЏРµРј РґРёР°РїР°Р·РѕРЅ РїРѕР»Р·СѓРЅРєР°
             slider->setRange(0, lines.size() - 1);
 
-            // Если строк больше нет, очищаем текстовые поля
-            if (lines.isEmpty()) {
-                textEdit->clear();
-                specialTextEdit->clear();
-            }
-            else {
-                // Переключаемся на предыдущую строку
-                if (currentLine >= lines.size()) {
-                    currentLine = lines.size() - 1;
-                }
-                slider->setValue(currentLine);
-                updateText(currentLine);
+            // РџРµСЂРµРєР»СЋС‡Р°РµРјСЃСЏ РЅР° РїСЂРµРґС‹РґСѓС‰СѓСЋ Р·Р°РґР°С‡Сѓ, РµСЃР»Рё РѕРЅР° РµСЃС‚СЊ
+            if (currentLineIndex >= lines.size()) {
+                currentLineIndex = lines.size() - 1;
             }
 
-            // Сохраняем изменения в файл
-            QFile file(filePath);
-            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-                QTextStream out(&file);
-                out << lines.join(SEP);
-                file.close();
-                QMessageBox::information(this, "Success", "Line deleted successfully!");
+            // РћР±РЅРѕРІР»СЏРµРј С‚РµРєСЃС‚РѕРІС‹Рµ РїРѕР»СЏ
+            updateText(currentLineIndex);
+
+            // РЎРѕС…СЂР°РЅСЏРµРј РёР·РјРµРЅРµРЅРёСЏ РІ С„Р°Р№Р»
+            saveFile();
+        }
+    }
+
+    // РњРµС‚РѕРґ РґР»СЏ РѕС‡РёСЃС‚РєРё С„Р°Р№Р»Р° Results.txt
+    void clearResultsFile() {
+        QFile resultsFile(resultsFilePath);
+        if (resultsFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
+            resultsFile.close();
+            QMessageBox::information(this, "РЈСЃРїРµС…", "Р’С‹РїРѕР»РЅРµРЅРёРµ РІСЃРµС… Р·Р°РґР°С‡ РѕС‚РјРµРЅРµРЅРѕ.");
+            updateTimeLabel(currentLineIndex + 1);
+            updateSaveCountLabel(currentLineIndex + 1); 
+        }
+        else {
+            QMessageBox::warning(this, "РћС€РёР±РєР°", "РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РјРµРЅРёС‚СЊ РІС‹РїРѕР»РЅРµРЅРёРµ Р·Р°РґР°С‡.");
+        }
+    }
+    void updateTimeLabel(int lineNumber) {
+        QFile resultsFile(resultsFilePath);
+        if (resultsFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&resultsFile);
+            QString lastTime = "Р’СЂРµРјСЏ РЅРµ РЅР°Р№РґРµРЅРѕ"; 
+
+            while (!in.atEnd()) {
+                QString line = in.readLine();
+                if (line.contains("Selected line number: " + QString::number(lineNumber))) {
+                    // РР·РІР»РµРєР°РµРј РІСЂРµРјСЏ РёР· СЃС‚СЂРѕРєРё
+                    int timePos = line.indexOf("Time: ");
+                    if (timePos != -1) {
+                        lastTime = line.mid(timePos + 6); 
+                    }
+                }
             }
-            else {
-                QMessageBox::critical(this, "Error", "Failed to save changes after deletion!");
+
+            resultsFile.close();
+            timeLabel->setText("РџРѕСЃР»РµРґРЅРµРµ РѕС‚РєСЂС‹С‚РёРµ: " + lastTime);
+        }
+        else {
+            timeLabel->setText("РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ С„Р°Р№Р» Results.txt");
+        }
+    }
+    void updateSaveCountLabel(int lineNumber) {
+        QFile resultsFile(resultsFilePath);
+        if (resultsFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream in(&resultsFile);
+            int saveCount = 0;
+
+            while (!in.atEnd()) {
+                QString line = in.readLine();
+                if (line.contains("Selected line number: " + QString::number(lineNumber))) {
+                    saveCount++;
+                }
             }
+
+            resultsFile.close();
+            saveCountLabel->setText("РљРѕР»РёС‡РµСЃС‚РІРѕ РІС‹РїРѕР»РЅРµРЅРёР№ СЌС‚РѕР№ Р·Р°РґР°С‡Рё: " + QString::number(saveCount));
+        }
+        else {
+            saveCountLabel->setText("РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕР»СѓС‡РёС‚СЊ СЃРїРёСЃРѕРє РІС‹РїРѕР»РЅРµРЅС‹С… Р·Р°РґР°С‡.");
+        }
+    }
+    void logSaveEvent(int lineNumber) {
+        QFile resultsFile(resultsFilePath);
+        if (resultsFile.open(QIODevice::Append | QIODevice::Text)) {
+            QTextStream out(&resultsFile);
+            out << "Selected line number: " << lineNumber << " | Time: " << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss") << "\n";
+            resultsFile.close();
+        }
+        else {
+            QMessageBox::warning(this, "РћС€РёР±РєР°", "РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїРёСЃР°С‚СЊ СЃРїРёСЃРѕРє РІС‹РїРѕР»РЅРµРЅРЅСѓСЋ Р·Р°РґР°С‡Сѓ.");
+        }
+    }
+    QString extractSubstring(const QString& text) {
+        int startPos = text.indexOf("~~");
+        int endPos = text.lastIndexOf("~~");
+
+        if (startPos != -1 && endPos != -1 && startPos < endPos) {
+            return text.mid(startPos + 2, endPos - startPos - 2); // РР·РІР»РµРєР°РµРј РїР°СЂРѕР»СЊ
+        }
+        return QString(); // Р•СЃР»Рё РїР°СЂРѕР»СЊ РЅРµ РЅР°Р№РґРµРЅ
+    }
+    QString removeSubstring(const QString& text) {
+        int startPos = text.indexOf("~~");
+        int endPos = text.lastIndexOf("~~");
+
+        if (startPos != -1 && endPos != -1 && startPos < endPos) {
+            QString before = text.left(startPos);
+            QString after = text.mid(endPos + 2);
+            return before + after; // РЈРґР°Р»СЏРµРј РїР°СЂРѕР»СЊ
+        }
+        return text;
+    }
+    void saveFile() {
+        QFile file(filePath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << lines.join(separator); 
+            file.close();
+        }
+        else {
+            QMessageBox::warning(this, "РћС€РёР±РєР°", "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ.");
         }
     }
 
 private:
-    // Загрузка строк из файла
-    void loadFile() {
-        QFile file(filePath);
-        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            QTextStream in(&file);
-            lines = in.readAll().split(SEP);
-            file.close();
-        }
-    }
-
     QString filePath;
+    QString resultsFilePath;
+    QString separator;
     QStringList lines;
     QTextEdit* textEdit;
-    QTextEdit* specialTextEdit; // Новое поле для строк, заключенных в ~~
+    QLineEdit* substringEdit;
+    QLabel* timeLabel;
+    QLabel* saveCountLabel;
     QSlider* slider;
+    int currentLineIndex = -1; // РРЅРґРµРєСЃ С‚РµРєСѓС‰РµР№ Р·Р°РґР°С‡Рё
 };
-
-// Класс главного окна
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
     MainWindow(QWidget* parent = nullptr) : QMainWindow(parent) {
-        // Создаем центральный виджет и устанавливаем его в MainWindow
+        // РЎРѕР·РґР°РµРј С†РµРЅС‚СЂР°Р»СЊРЅС‹Р№ РІРёРґР¶РµС‚ Рё СѓСЃС‚Р°РЅР°РІР»РёРІР°РµРј РµРіРѕ РІ MainWindow
         QWidget* centralWidget = new QWidget(this);
         setCentralWidget(centralWidget);
 
-        // Создаем вертикальный layout для центрального виджета
+        // РЎРѕР·РґР°РµРј РІРµСЂС‚РёРєР°Р»СЊРЅС‹Р№ layout РґР»СЏ С†РµРЅС‚СЂР°Р»СЊРЅРѕРіРѕ РІРёРґР¶РµС‚Р°
         QVBoxLayout* layout = new QVBoxLayout(centralWidget);
 
-        // Создаем первую кнопку
-        QPushButton* button1 = new QPushButton("Open Create Tasks Window", this);
+        // РЎРѕР·РґР°РµРј РїРµСЂРІСѓСЋ РєРЅРѕРїРєСѓ
+        QPushButton* button1 = new QPushButton("РЎРѕР·РґР°С‚СЊ Рё СЂРµРґР°РєС‚РёСЂРѕРІР°С‚СЊ Р·Р°РґР°С‡Рё.", this);
         layout->addWidget(button1);
 
-        // Создаем вторую кнопку
-        QPushButton* button2 = new QPushButton("Select Task by Number", this);
+        // РЎРѕР·РґР°РµРј РІС‚РѕСЂСѓСЋ РєРЅРѕРїРєСѓ
+        QPushButton* button2 = new QPushButton("Р’С‹РїРѕР»РЅСЏС‚СЊ Р·Р°РґР°С‡Рё.", this);
         layout->addWidget(button2);
 
-        // Подключаем сигналы кнопок к слотам
+        // РџРѕРґРєР»СЋС‡Р°РµРј СЃРёРіРЅР°Р»С‹ РєРЅРѕРїРѕРє Рє СЃР»РѕС‚Р°Рј
         connect(button1, &QPushButton::clicked, this, &MainWindow::openTextFileViewer);
         connect(button2, &QPushButton::clicked, this, &MainWindow::openLineNumberDialog);
     }
 
 private slots:
     void openTextFileViewer() {
-        // Укажите путь к вашему текстовому файлу
         QString filePath = "Textfile.txt";
 
-        // Создаем и показываем окно TextFileViewer
-        TextFileViewer* viewer = new TextFileViewer(filePath);
-        viewer->setWindowTitle("Create Tasks");
-        viewer->resize(400, 400); // Увеличиваем размер окна для нового поля
+        // РЎРѕР·РґР°РµРј Рё РїРѕРєР°Р·С‹РІР°РµРј РѕРєРЅРѕ TextFileViewer
+        TextFileViewer* viewer = new TextFileViewer(filePath, "Results.txt", SEP);
+        viewer->setWindowTitle("РЎРѕР·РґР°РЅРёРµ Рё СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёРµ Р·Р°РґР°С‡");
+        viewer->resize(400, 400); // РЈРІРµР»РёС‡РёРІР°РµРј СЂР°Р·РјРµСЂ РѕРєРЅР° РґР»СЏ РЅРѕРІРѕРіРѕ РїРѕР»СЏ
         viewer->show();
     }
 
     void openLineNumberDialog() {
-        // Создаем диалоговое окно
+        // РЎРѕР·РґР°РµРј РґРёР°Р»РѕРіРѕРІРѕРµ РѕРєРЅРѕ
         QDialog dialog(this);
-        dialog.setWindowTitle("Select Task Number");
+        dialog.setWindowTitle("Р’С…РѕРґ РІ Р·Р°РґР°С‡Сѓ.");
 
-        // Создаем layout для диалога
+        // РЎРѕР·РґР°РµРј layout РґР»СЏ РґРёР°Р»РѕРіР°
         QVBoxLayout* layout = new QVBoxLayout(&dialog);
 
-        // Поле для ввода номера строки
+        // РџРѕР»Рµ РґР»СЏ РІРІРѕРґР° РЅРѕРјРµСЂР° СЃС‚СЂРѕРєРё
         QLineEdit* lineEdit = new QLineEdit(&dialog);
-        lineEdit->setPlaceholderText("Enter task number");
+        lineEdit->setPlaceholderText("Р’РІРµРґРёС‚Рµ РЅРѕРјРµСЂ Р·Р°РґР°С‡Рё");
         layout->addWidget(lineEdit);
 
-        // Поле для ввода пароля
+        // РџРѕР»Рµ РґР»СЏ РІРІРѕРґР° РїР°СЂРѕР»СЏ
         QLineEdit* passwordEdit = new QLineEdit(&dialog);
-        passwordEdit->setPlaceholderText("Enter password");
-        passwordEdit->setEchoMode(QLineEdit::Password); // Скрываем ввод пароля
+        passwordEdit->setPlaceholderText("Р’РІРµРґРёС‚Рµ РїР°СЂРѕР»СЊ");
+        passwordEdit->setEchoMode(QLineEdit::Password); // РЎРєСЂС‹РІР°РµРј РІРІРѕРґ РїР°СЂРѕР»СЏ
         layout->addWidget(passwordEdit);
 
-        // Кнопки подтверждения и отмены
+        // РљРЅРѕРїРєРё РїРѕРґС‚РІРµСЂР¶РґРµРЅРёСЏ Рё РѕС‚РјРµРЅС‹
         QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
         layout->addWidget(buttonBox);
 
-        // Подключаем кнопки к слотам
+        // РџРѕРґРєР»СЋС‡Р°РµРј РєРЅРѕРїРєРё Рє СЃР»РѕС‚Р°Рј
         connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
         connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
-        // Показываем диалог и обрабатываем результат
+        // РџРѕРєР°Р·С‹РІР°РµРј РґРёР°Р»РѕРі Рё РѕР±СЂР°Р±Р°С‚С‹РІР°РµРј СЂРµР·СѓР»СЊС‚Р°С‚
         if (dialog.exec() == QDialog::Accepted) {
             bool ok;
             int lineNumber = lineEdit->text().toInt(&ok);
 
             if (ok) {
-                // Укажите путь к вашему текстовому файлу
                 QString filePath = "Textfile.txt";
 
-                // Загружаем файл
+                // Р—Р°РіСЂСѓР¶Р°РµРј С„Р°Р№Р»
                 QFile file(filePath);
                 if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
                     QTextStream in(&file);
                     QStringList lines = in.readAll().split(SEP);
                     file.close();
 
-                    // Проверяем, существует ли строка с таким номером
+                    // РџСЂРѕРІРµСЂСЏРµРј, СЃСѓС‰РµСЃС‚РІСѓРµС‚ Р»Рё СЃС‚СЂРѕРєР° СЃ С‚Р°РєРёРј РЅРѕРјРµСЂРѕРј
                     if (lineNumber >= 1 && lineNumber <= lines.size()) {
                         QString selectedLine = lines[lineNumber - 1];
 
-                        // Проверяем, совпадает ли введенный пароль с любой строкой в ~~
+                        // РџСЂРѕРІРµСЂСЏРµРј, СЃРѕРІРїР°РґР°РµС‚ Р»Рё РІРІРµРґРµРЅРЅС‹Р№ РїР°СЂРѕР»СЊ СЃ Р»СЋР±РѕР№ СЃС‚СЂРѕРєРѕР№ РІ ~~
                         QString password = passwordEdit->text();
                         QRegularExpression regex("~~(.*?)~~");
                         QRegularExpressionMatchIterator matches = regex.globalMatch(selectedLine);
@@ -314,25 +413,59 @@ private slots:
                         }
 
                         if (passwordMatch) {
-                            // Отображаем текст строки
-                            QMessageBox::information(this, "Task Text", selectedLine);
+                            // РЎРѕР·РґР°РµРј РЅРѕРІРѕРµ РґРёР°Р»РѕРіРѕРІРѕРµ РѕРєРЅРѕ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ Р·Р°РґР°С‡Рё
+                            QDialog lineDialog(this);
+                            lineDialog.setWindowTitle("Р—Р°РґР°С‡Р°:");
+
+                            QVBoxLayout* lineLayout = new QVBoxLayout(&lineDialog);
+
+                            // РћС‚РѕР±СЂР°Р¶Р°РµРј С‚РµРєСЃС‚ Р·Р°РґР°С‡Рё
+                            QLabel* lineLabel = new QLabel(selectedLine, &lineDialog);
+                            lineLayout->addWidget(lineLabel);
+
+                            // РљРЅРѕРїРєР° РґР»СЏ Р·Р°РїРёСЃРё РЅРѕРјРµСЂР° Р·Р°РґР°С‡Рё РІ С„Р°Р№Р»
+                            QPushButton* readyButton = new QPushButton("Р’С‹РїРѕР»РЅРёС‚СЊ.", &lineDialog);
+                            lineLayout->addWidget(readyButton);
+
+                            // РџРѕРґРєР»СЋС‡Р°РµРј РєРЅРѕРїРєСѓ Рє СЃР»РѕС‚Сѓ
+                            connect(readyButton, &QPushButton::clicked, [&lineDialog, lineNumber]() {
+                                // РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰РµРµ РІСЂРµРјСЏ
+                                QDateTime currentTime = QDateTime::currentDateTime();
+                                QString timeString = currentTime.toString("yyyy-MM-dd HH:mm:ss");
+
+                                // Р—Р°РїРёСЃС‹РІР°РµРј РЅРѕРјРµСЂ Р·Р°РґР°С‡Рё Рё РІСЂРµРјСЏ РІ С„Р°Р№Р» Results.txt
+                                QFile resultsFile("Results.txt");
+                                if (resultsFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+                                    QTextStream out(&resultsFile);
+                                    out << "Selected line number: " << lineNumber << " | Time: " << timeString << "\n";
+                                    resultsFile.close();
+                                    QMessageBox::information(&lineDialog, "Р’С‹РїРѕР»РЅРµРЅРѕ", "Р¤Р°РєС‚ РІС‹РїРѕР»РЅРµРЅРёСЏ Р·Р°РґР°С‡Рё Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅ!");
+                                }
+                                else {
+                                    QMessageBox::critical(&lineDialog, "РћС€РёР±РєР°", "Р¤Р°РєС‚ РІС‹РїРѕР»РЅРµРЅРёСЏ Р·Р°РґР°С‡Рё РЅРµ Р·Р°С„РёРєСЃРёСЂРѕРІР°РЅ.");
+                                }
+                                lineDialog.close();
+                                });
+
+                            // РџРѕРєР°Р·С‹РІР°РµРј РґРёР°Р»РѕРі
+                            lineDialog.exec();
                         }
                         else {
-                            // Сообщение об ошибке
-                            QMessageBox::critical(this, "Error", "Incorrect password!");
+                            // РЎРѕРѕР±С‰РµРЅРёРµ РѕР± РѕС€РёР±РєРµ
+                            QMessageBox::critical(this, "РћС€РёР±РєР°", "РќРµРїСЂР°РІРёР»СЊРЅС‹Р№ РїР°СЂРѕР»СЊ.");
                         }
                     }
                     else {
-                        // Сообщение об ошибке
-                        QMessageBox::critical(this, "Error", "Invalid task number!");
+                        // РЎРѕРѕР±С‰РµРЅРёРµ РѕР± РѕС€РёР±РєРµ
+                        QMessageBox::critical(this, "РћС€РёР±РєР°", "РќРµРїСЂР°РІРёР»СЊРЅС‹Р№ РЅРѕРјРµСЂ Р·Р°РґР°С‡Рё.");
                     }
                 }
                 else {
-                    QMessageBox::critical(this, "Error", "Failed to open the file!");
+                    QMessageBox::critical(this, "РћС€РёР±РєР°", "РћС€РёР±РєР° РѕС‚РєСЂС‹С‚РёСЏ С„Р°Р№Р»Р°.");
                 }
             }
             else {
-                QMessageBox::critical(this, "Error", "Invalid input!");
+                QMessageBox::critical(this, "РћС€РёР±РєР°", "РќРµРїСЂР°РІРёР»СЊРЅС‹Р№ РІРІРѕРґ.");
             }
         }
     }
@@ -341,9 +474,8 @@ private slots:
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
 
-    // Создаем и показываем MainWindow
     MainWindow mainWindow;
-    mainWindow.setWindowTitle("Main Window");
+    mainWindow.setWindowTitle("Р’С‹Р±РѕСЂ СЂРµР¶РёРјР°.");
     mainWindow.resize(300, 200);
     mainWindow.show();
 
