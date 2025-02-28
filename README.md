@@ -1,0 +1,1 @@
+Для работы программы требуется установленый QT Creator или расширение QT VS Tools в Visual Studio.
