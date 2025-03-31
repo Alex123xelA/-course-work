@@ -1,5 +1,4 @@
 #include "TaskApp.h"
-#include "TextFileEdit.h"
 
 TaskApp::TaskApp(QWidget* parent) : QMainWindow(parent) {
     // Создаем центральный виджет и устанавливаем его в MainWindow

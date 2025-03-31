@@ -14,7 +14,9 @@
 #include <QSlider>
 #include <QDateTime>
 
-class TextFileEdit; // Предварительное объявление
+//class TextFileEdit; // Предварительное объявление
+
+const QString SEP = "`~`&";
 
 class TaskApp : public QMainWindow
 {
@@ -30,4 +32,35 @@ private slots:
 
 private:
     QWidget* centralWidget;
+};
+
+class TextFileEdit : public QWidget {
+    Q_OBJECT
+
+public:
+    explicit TextFileEdit(const QString& filePath, QWidget* parent = nullptr);
+
+private slots:
+    void updateTextEdit(int index);
+    void saveChanges();
+    void addNewElement();
+    void deleteCurrentElement();
+
+private:
+    void loadFile(const QString& filePath);
+    void setupUI();
+    void updateTimeAndCount(const QString& title);
+    void saveFile();
+    void extractPasswordAndTitle(QString& item);
+
+    QTextEdit* textEdit;
+    QLineEdit* titleEdit;
+    QLineEdit* passwordEdit;
+    QLineEdit* lastTimeEdit;
+    QLineEdit* countEdit;
+    QSlider* slider;
+    QStringList items;
+    QStringList titles;
+    QStringList passwords;
+    QString filePath;
 };
