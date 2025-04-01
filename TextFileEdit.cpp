@@ -69,51 +69,6 @@ void TextFileEdit::extractTitle(QString& item) {
     }
 }
 
-void TextFileEdit::setupUI() {
-    QVBoxLayout* layout = new QVBoxLayout(this);
-
-    // Поле для отображения названия
-    titleEdit = new QLineEdit(this);
-    layout->addWidget(titleEdit);
-
-    // Основное текстовое поле
-    textEdit = new QTextEdit(this);
-    layout->addWidget(textEdit);
-
-    // Поле для отображения последнего времени
-    lastTimeEdit = new QLineEdit(this);
-    lastTimeEdit->setReadOnly(true);
-    layout->addWidget(lastTimeEdit);
-
-    // Поле для отображения количества выполнений
-    countEdit = new QLineEdit(this);
-    countEdit->setReadOnly(true);
-    layout->addWidget(countEdit);
-
-    // Ползунок
-    slider = new QSlider(Qt::Horizontal, this);
-    slider->setRange(0, items.size() - 1);
-    slider->setValue(0);
-    layout->addWidget(slider);
-
-    // Кнопки
-    QPushButton* saveButton = new QPushButton(QString::fromUtf8("Сохранить"), this);
-    QPushButton* addButton = new QPushButton(QString::fromUtf8("Добавить задачу"), this);
-    QPushButton* deleteButton = new QPushButton(QString::fromUtf8("Удалить задачу"), this);
-
-    layout->addWidget(saveButton);
-    layout->addWidget(addButton);
-    layout->addWidget(deleteButton);
-
-    // Отображение первой задачи
-    updateTextEdit(0);
-
-    // Соединение сигналов и слотов
-    connect(slider, &QSlider::valueChanged, this, &TextFileEdit::updateTextEdit);
-    connect(saveButton, &QPushButton::clicked, this, &TextFileEdit::saveChanges);
-    connect(addButton, &QPushButton::clicked, this, &TextFileEdit::addNewElement);
-    connect(deleteButton, &QPushButton::clicked, this, &TextFileEdit::deleteCurrentElement);
-}
 
 void TextFileEdit::updateTextEdit(int index) {
     if (index >= 0 && index < items.size()) {
@@ -124,7 +79,7 @@ void TextFileEdit::updateTextEdit(int index) {
 }
 
 void TextFileEdit::updateTimeAndCount(const QString& title) {
-    QFile resultsFile("Results.txt");
+    QFile resultsFile("DataResults.txt");
     if (resultsFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QTextStream in(&resultsFile);
         QString lastTime;
@@ -193,40 +148,3 @@ void TextFileEdit::saveFile() {
     }
 }
 
-void TextFileEdit::addNewElement() {
-    items.append(QString::fromUtf8("Новый элемент"));
-    titles.append(QString::fromUtf8("Новое название"));
-
-    slider->setRange(0, items.size() - 1);
-    slider->setValue(items.size() - 1);
-    saveFile();
-
-    QMessageBox::information(this,
-        QString::fromUtf8("Добавлено"),
-        QString::fromUtf8("Новая задача успешно добавлена!"));
-}
-
-void TextFileEdit::deleteCurrentElement() {
-    int index = slider->value();
-    if (index >= 0 && index < items.size()) {
-        items.removeAt(index);
-        titles.removeAt(index);
-
-        slider->setRange(0, items.size() - 1);
-        if (items.isEmpty()) {
-            textEdit->clear();
-            titleEdit->clear();
-            lastTimeEdit->clear();
-            countEdit->clear();
-        }
-        else {
-            slider->setValue(qMax(0, index - 1));
-        }
-
-        saveFile();
-
-        QMessageBox::information(this,
-            QString::fromUtf8("Удалено"),
-            QString::fromUtf8("Задача успешно удалена!"));
-    }
-}

@@ -26,7 +26,7 @@ TaskApp::~TaskApp() {
 }
 
 void TaskApp::openTextFileViewer() {
-    QString filePath = "Textfile.txt";
+    QString filePath = "Data/Textfile.txt";
     TextFileEdit* viewer = new TextFileEdit(filePath);
     viewer->setWindowTitle(QString::fromUtf8("Редактирование задач."));
     viewer->resize(400, 400);
@@ -57,7 +57,7 @@ void TaskApp::openLineSubstringDialog() {
     if (dialog.exec() == QDialog::Accepted) {
         QString substring = substringEdit->text();
         substring = "$$" + substring + "$$";
-        QString filePath = "Textfile.txt";
+        QString filePath = "Data/Textfile.txt";
 
         QFile file(filePath);
         if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -110,7 +110,7 @@ void TaskApp::openLineSubstringDialog() {
                             QDateTime currentTime = QDateTime::currentDateTime();
                             QString timeString = currentTime.toString("yyyy-MM-dd HH:mm:ss");
 
-                            QFile resultsFile("Results.txt");
+                            QFile resultsFile("Data/Results.txt");
                             if (resultsFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
                                 QTextStream out(&resultsFile);
                                 out << "Selected line: " << extractedSubstring << " | Time: " << timeString << "\n";
