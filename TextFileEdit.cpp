@@ -9,37 +9,54 @@
 TextFileEdit::TextFileEdit(const QString& filePath, QWidget* parent)
     : QWidget(parent), filePath(filePath)
 {
-    loadFile(filePath);
+    NewLoad(filePath);  
     setupUI();
 }
 
-void TextFileEdit::loadFile(const QString& filePath) {
-    QFile file(filePath);
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QTextStream in(&file);
-        QString content = in.readAll();
-        file.close();
+void TextFileEdit::NewLoad(const QString& filePath) {
+    DataFile file(filePath);
+    QString content;
 
-        items = content.split(SEP, Qt::SkipEmptyParts);
+    if (!file.loadFile(content)) {
+        QMessageBox::critical(this,
+            QString::fromUtf8("Ошибка"),
+            QString::fromUtf8("Не удалось открыть файл!"));
+        return;
+    }
 
-        for (QString& item : items) {
-            extractPasswordAndTitle(item);
+    // Очищаем текущие данные
+    items.clear();
+    titles.clear();
+
+    // Разбиваем содержимое на пары с помощью DataFile
+    QList<QStringList> nameAndText = file.splitContentToPairs(content, SEP, SEPNAME);
+
+    // Обрабатываем каждую пару
+    for (const QStringList& pair : nameAndText) {
+        if (pair.size() >= 2) {
+            QString item = pair[1]; // Основной текст
+            items.append(item);
+
+            // Извлекаем название
+            extractTitle(item);
+
+            // Обновляем последний элемент в items (так как extractTitle модифицирует строку)
+            if (!items.isEmpty()) {
+                items[items.size() - 1] = item;
+            }
+        }
+    }
+
+    // Обновляем UI, если он уже был создан
+    if (slider) {
+        slider->setRange(0, items.size() - 1);
+        if (!items.isEmpty()) {
+            slider->setValue(0);
+            updateTextEdit(0);
         }
     }
 }
-
-void TextFileEdit::extractPasswordAndTitle(QString& item) {
-    // Извлечение пароля (подстрока между ~~)
-    QRegularExpression passwordRegex("~~(.*?)~~");
-    QRegularExpressionMatch passwordMatch = passwordRegex.match(item);
-    if (passwordMatch.hasMatch()) {
-        passwords.append(passwordMatch.captured(1));
-        item.remove(passwordMatch.captured(0));
-    }
-    else {
-        passwords.append("");
-    }
-
+void TextFileEdit::extractTitle(QString& item) {
     // Извлечение названия (подстрока между $$)
     QRegularExpression titleRegex("\\$\\$(.*?)\\$\\$");
     QRegularExpressionMatch titleMatch = titleRegex.match(item);
@@ -58,10 +75,6 @@ void TextFileEdit::setupUI() {
     // Поле для отображения названия
     titleEdit = new QLineEdit(this);
     layout->addWidget(titleEdit);
-
-    // Поле для отображения пароля
-    passwordEdit = new QLineEdit(this);
-    layout->addWidget(passwordEdit);
 
     // Основное текстовое поле
     textEdit = new QTextEdit(this);
@@ -106,7 +119,6 @@ void TextFileEdit::updateTextEdit(int index) {
     if (index >= 0 && index < items.size()) {
         textEdit->setText(items[index]);
         titleEdit->setText(titles[index]);
-        passwordEdit->setText(passwords[index]);
         updateTimeAndCount(titles[index]);
     }
 }
@@ -145,7 +157,6 @@ void TextFileEdit::saveChanges() {
     if (index >= 0 && index < items.size()) {
         items[index] = textEdit->toPlainText();
         titles[index] = titleEdit->text();
-        passwords[index] = passwordEdit->text();
         saveFile();
 
         QMessageBox::information(this,
@@ -162,13 +173,9 @@ void TextFileEdit::saveFile() {
         for (int i = 0; i < items.size(); ++i) {
             QString item = items[i];
             QString title = titles[i];
-            QString password = passwords[i];
 
             if (!title.isEmpty()) {
                 item.prepend("$$" + title + "$$ ");
-            }
-            if (!password.isEmpty()) {
-                item.prepend("~~" + password + "~~ ");
             }
 
             out << item;
@@ -189,7 +196,6 @@ void TextFileEdit::saveFile() {
 void TextFileEdit::addNewElement() {
     items.append(QString::fromUtf8("Новый элемент"));
     titles.append(QString::fromUtf8("Новое название"));
-    passwords.append(QString::fromUtf8("Новый пароль"));
 
     slider->setRange(0, items.size() - 1);
     slider->setValue(items.size() - 1);
@@ -205,13 +211,11 @@ void TextFileEdit::deleteCurrentElement() {
     if (index >= 0 && index < items.size()) {
         items.removeAt(index);
         titles.removeAt(index);
-        passwords.removeAt(index);
 
         slider->setRange(0, items.size() - 1);
         if (items.isEmpty()) {
             textEdit->clear();
             titleEdit->clear();
-            passwordEdit->clear();
             lastTimeEdit->clear();
             countEdit->clear();
         }

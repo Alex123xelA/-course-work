@@ -13,10 +13,12 @@
 #include <QTextEdit>
 #include <QSlider>
 #include <QDateTime>
+#include <QFile>
 
 //class TextFileEdit; // Предварительное объявление
 
 const QString SEP = "`~`&";
+const QString SEPNAME = "$$";
 
 class TaskApp : public QMainWindow
 {
@@ -47,20 +49,31 @@ private slots:
     void deleteCurrentElement();
 
 private:
-    void loadFile(const QString& filePath);
+ 
     void setupUI();
     void updateTimeAndCount(const QString& title);
     void saveFile();
-    void extractPasswordAndTitle(QString& item);
+    void extractTitle(QString& item);
+    void NewLoad(const QString& filePath);
 
     QTextEdit* textEdit;
     QLineEdit* titleEdit;
-    QLineEdit* passwordEdit;
     QLineEdit* lastTimeEdit;
     QLineEdit* countEdit;
     QSlider* slider;
     QStringList items;
     QStringList titles;
-    QStringList passwords;
     QString filePath;
+};
+
+class DataFile : public QFile {
+public:
+    DataFile(const QString& filePath, QObject* parent = nullptr);
+    bool loadFile(QString& content);
+    QList<QStringList> splitContentToPairs(const QString& content,
+        const QString& SEP,
+        const QString& SEPNAME) const;
+
+private:
+    // Дополнительные приватные члены класса
 };
